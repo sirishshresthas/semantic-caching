@@ -6,7 +6,7 @@ from src.core.utilities import EXPORT_CONFIG
 DEFAULT_ENV = "dev"
 
 # Fetch the environment, defaulting to "dev" if not set
-ENV = os.getenv("ASPNETCORE_ENVIRONMENT", DEFAULT_ENV)
+ENV = os.getenv("PROJECT_ENVIRONMENT", DEFAULT_ENV)
 
 # Get the configuration callable based on the environment
 config_callable = EXPORT_CONFIG.get(ENV)
