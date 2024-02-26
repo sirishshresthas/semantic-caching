@@ -4,7 +4,7 @@ from src.core.utilities import settings
 class BaseService: 
     def __init__(self):
         self.client = settings.MONGODB_CLIENT
-        self.db = settings.DATABASE_NAME
+        self.db = settings.DATABASE
         self.collection = None
 
     def find(self, filter={},project={}):
@@ -22,8 +22,8 @@ class BaseService:
     def distinct(self,query=""):
         return self.collection.distinct(query)
 
-    def insert_one(self, **kwargs):
-        self.collection.insert_one(kwargs)
+    def insert_one(self, document):
+        self.collection.insert_one(document)
 
     def update_one(self, filter, newvalues):
         self.collection.update_one(filter, newvalues)
