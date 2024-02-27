@@ -21,17 +21,18 @@ class CommonSettings(Settings):
 
     DATABASE_NAME: str = Field(default="", env="DATABASE_NAME")
     COLLECTION_NAME: str = Field(default="", env="COLLECTION_NAME")
-    MONGODB_CONNECTION_STRING: str = Field(default="", env="MONGODB_CONNECTION_STRING")
+    MONGODB_CONNECTION_STRING: str = Field(
+        default="", env="MONGODB_CONNECTION_STRING")
 
     ARES_URL: str = Field(default="", env="ARES_URL")
     ARES_API_KEY: str = Field(default="", env="ARES_API_KEY")
 
     PROJECT_ENVIRONMENT: str = Field(default="dev", env="PROJECT_ENVIRONMENT")
-    
+
     @property
     def MONGODB_CLIENT(self) -> MongoClient:
         return MongoClient(self.MONGODB_CONNECTION_STRING)
-    
+
     @property
     def DATABASE(self) -> Database:
         return self.MONGODB_CLIENT[self.DATABASE_NAME]
@@ -40,7 +41,6 @@ class CommonSettings(Settings):
 class DevelopmentSetting(CommonSettings):
     ENV: str = "dev"
     DEBUG: bool = Field(default=True, env="DEBUG")
-
 
 
 class ProductionSetting(CommonSettings):

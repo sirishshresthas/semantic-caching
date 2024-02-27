@@ -7,7 +7,9 @@ import pymongo
 from sentence_transformers import SentenceTransformer
 
 from src.core import VectorStorage, models, requests, services
+from src.core.utilities import setup_logging
 
+setup_logging(log_file="cache.log")
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +33,9 @@ class SemanticCaching(object):
         self._distance_threshold = threshold
         self.cache = models.CacheBase()
 
+        logger.info("Initiating SemanticCaching.")
+        logger.info(f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
+
     @property
     def distance_threshold(self):
         """Returns the current distance threshold."""
@@ -44,7 +49,7 @@ class SemanticCaching(object):
     def save_cache(self):
         """Inserts the current cache state into the database."""
         try:
-            logging.info("Inserting data to cache db.")
+            logging.info("Inserting data to mongo db. Collection: cache")
             self.cache_service.insert_one(self.cache.serialize())
         except pymongo.errors.PyMongoError as e:
             logging.error(f"Error inserting data to MongoDB: {e}")
@@ -60,6 +65,7 @@ class SemanticCaching(object):
             str: The answer to the question.
         """
         try:
+            logger.info("Asking question")
             start_time = time.time()
             metadata: Dict = {}
 
@@ -69,6 +75,7 @@ class SemanticCaching(object):
             # identify the points from the vectors
             points = self.vectorDb.search(query_vector=embedding)
 
+            logger.info("Evaluating similarity in the database.")
             return self.evaluate_similarity(points=points, start_time=start_time, question=question, embedding=embedding, metadata=metadata)
         except Exception as e:
             logger.error(f"Error during 'ask' method: {e}")
@@ -96,14 +103,12 @@ class SemanticCaching(object):
             # identify the distance metric to compare score with threshold
             is_hit = False
 
+            logger.info(f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
             if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
                 is_hit = score > self.distance_threshold
 
             else:
                 is_hit = score <= self.distance_threshold
-
-            print(
-                f'Distance metric used is {self.vectorDb.distance_metric.lower()}')
 
             if is_hit:
                 result = self.handle_cache_hit(
@@ -111,8 +116,10 @@ class SemanticCaching(object):
 
                 if not result:
                     print("Data doesn't seem to exist in the cache. Populating..")
+                    logger.info("Data doesn't seem to exist in the cache. Populating..")
                     result = self.handle_cache_miss(
                         question=question, embedding=embedding, point_id=point.id, metadata=metadata)
+                    logger.info("Result: ", result)
                 else:
                     result = result['response_text']
 
@@ -120,6 +127,7 @@ class SemanticCaching(object):
                 return result
 
         result = self.handle_cache_miss(question, embedding, metadata=metadata)
+        logger.info("Result: ", result)
         self.display_elapsed_time(start_time)
         return result
 
@@ -136,7 +144,8 @@ class SemanticCaching(object):
         """
         logger.info(
             f'Found cache hit: {point_id} with distance {distance}')
-        print("Getting response from cache ")
+        print(f'Found cache hit: {point_id} with distance {distance}')
+        
         response_cursor = self.cache_service.find(
             filter={"qdrant_id": point_id})
 
@@ -177,6 +186,7 @@ class SemanticCaching(object):
             metadata (Optional[Dict]): The metadata to add to the vector db.
 
         """
+        logger.info("Storing data to cache")
         point_id = point_id if point_id else str(uuid.uuid4())
         self.cache.qdrant_id = point_id
         self.cache.question = question
@@ -184,6 +194,7 @@ class SemanticCaching(object):
         self.cache.answer = answer
         self.cache.response_text = response_text
 
+        logger.info("Storing data to vector database.")
         self.vectorDb.upsert(embeddings=embedding,
                              point_id=point_id, metadata=metadata)
         self.save_cache()
@@ -199,6 +210,7 @@ class SemanticCaching(object):
             Tuple[str, str]: The answer and the response text.
         """
         try:
+            logger.info("Getting answer from Ares.")
             result = requests.get_answer(question)
             return result['data'], result['data']['response_text']
         except Exception as e:
@@ -214,4 +226,4 @@ class SemanticCaching(object):
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Time to respond: {elapsed_time} seconds")
-        logging.info(f"Time taken: {elapsed_time} seconds")
+        logging.info(f"Time to respond: {elapsed_time} seconds")

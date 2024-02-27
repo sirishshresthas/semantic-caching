@@ -20,7 +20,8 @@ def get_answer(data: str) -> Optional[Dict]:
                       Returns None if the request fails or the response cannot be decoded as JSON.
     """
     payload = {"data": [data]}
- 
+    logger.info("Payload: ", payload)
+
     url = settings.ARES_URL
     api_key = settings.ARES_API_KEY
     headers = {
@@ -34,8 +35,8 @@ def get_answer(data: str) -> Optional[Dict]:
         raise ValueError(
             "ARES_URL or ARES_API_KEY is not configured properly.")
 
-
     try:
+        logger.info(f"Requesting {url} for answer.")
         response = requests.post(url, json=payload, headers=headers)
     except requests.exceptions.RequestException as e:
         logger.error(f"Error during request: {e}")
@@ -43,6 +44,7 @@ def get_answer(data: str) -> Optional[Dict]:
 
     if response.status_code == 200:
         try:
+            logger.info("request valid")
             return response.json()
         except ValueError as e:
             logger.error(f"No JSON data in the response: {e}")
