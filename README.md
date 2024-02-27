@@ -92,7 +92,7 @@ print(answer)
 You can adjust the similarity threshold for determining cache hits according to your needs. A higher threshold requires greater similarity for a cache hit, whereas a lower threshold is more lenient.
 
 ```python
-semantic_caching.distance_threshold = 0.9  # Set a new threshold
+semantic_caching.distance_threshold = 0.9 
 ```
 
 ### Saving Cache to Database
@@ -104,10 +104,3 @@ semantic_caching.save_cache()
 
 ## Contributing
 Contributions to the Semantic Caching Project are welcome! Please submit pull requests or open issues to propose changes or report bugs.
-
-## License
-Specify your project's license here.
-
----
-
-Remember to replace `<repository-url>` with the actual URL of your project's repository and adjust any specific details according to your project's setup and requirements.
