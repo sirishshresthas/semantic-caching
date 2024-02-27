@@ -6,6 +6,7 @@ dependencies:
   - pydantic=2.6.1
   - pydantic-settings=2.1.0
   - pymongo=4.6.2
+  - ipywidgets=8.1.2
   - pip=24.0
   - pip:
     - qdrant_client=1.7.3
