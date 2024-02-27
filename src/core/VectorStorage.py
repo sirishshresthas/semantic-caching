@@ -28,13 +28,13 @@ class VectorDB(object):
         search: Searches the database for points close to a given query vector.
     """
 
-    def __init__(self, vector_size: int = 300):
+    def __init__(self, vector_size: int = 768, distance_metric: str = 'cosine'):
 
         self._distance_metric: str = ''
         self.client = QdrantClient(
             url=settings.VECTORDB_URL, api_key=settings.VECTORDB_API_KEY)
         self._collection_name = settings.COLLECTION_NAME
-        self.get_collection(vector_size=vector_size)
+        self.get_collection(vector_size=vector_size, distance=distance_metric)
         self.payload = {}
 
         logger.info("Initiating VectorStorage.")

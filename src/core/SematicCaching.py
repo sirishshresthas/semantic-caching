@@ -18,18 +18,19 @@ class SemanticCaching(object):
     A class for caching and retrieving semantic search results to improve efficiency and response time.
     """
 
-    def __init__(self, threshold: int = 0.8, encoder_model: str = 'all-mpnet-base-v2'):
+    def __init__(self, threshold: int = 0.8, encoder_model: str = 'all-mpnet-base-v2', distance_metric: str = 'cosine'):
         """
         Initializes the SemanticCaching instance.
 
         Args:
             threshold (float): The similarity threshold for considering a cache hit.
             encoder_model (str): The model used by SentenceTransformer for encoding sentences.
+            distance_metric (str): Distance metric to use in Qdrant collection while creating it. It defaults to cosine. Available are dot, cosine, euclidean, manhattan.
         """
         self.cache_service = services.CacheService()
         self.encoder = SentenceTransformer(encoder_model)
         self.vectorDb = VectorStorage.VectorDB(
-            vector_size=self.encoder.get_sentence_embedding_dimension())
+            vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric = distance_metric)
         self._distance_threshold = threshold
         self.cache = models.CacheBase()
 
