@@ -1,3 +1,3 @@
-from .make_predictions import make_prediction
+from .requests import get_answer
 from .SematicCaching import SemanticCaching
 from .VectorStorage import VectorDB
