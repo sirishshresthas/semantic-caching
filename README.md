@@ -55,7 +55,7 @@ Following environment variables are required in the .env file
     ```
     PROJECT_ENVIRONMENT=dev
 
-    ## Quadrant
+    ## Qdrant
     VECTORDB_URL= #Qdrant URL
     VECTORDB_API_KEY= #Qdrant API Key
 
