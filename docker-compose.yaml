@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  sem-cache:
+    container_name: semantic-caching
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: semantic-caching:latest
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/usr/src/app
