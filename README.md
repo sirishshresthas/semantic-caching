@@ -14,7 +14,7 @@ The Semantic Caching is designed to enhance the efficiency of semantic search op
 - Python 3.11+
 - MongoDB - Connection string is required for local or cloud
 - Qdrant Vector DB - URL and API Key are required
-- ARES API - Create/retrieve an API Key from `https://api.traversaal.ai/`. Visit `https://docs.traversaal.ai/docs/intro` for docs
+- ARES API - Create/retrieve an API Key from https://api.traversaal.ai/. Visit https://docs.traversaal.ai/docs/intro for docs
 - Sentence Transformers
 - Any additional dependencies listed in `requirements.txt`.
 
