@@ -1,110 +1,217 @@
-import json
+import logging
 import time
 import uuid
-from typing import Any, Dict
+from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import pymongo
 from sentence_transformers import SentenceTransformer
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.core.make_predictions import make_prediction
-from src.core.models import CacheBase
-from src.core.services import CacheService
-from src.core.VectorStorage import VectorDB
+from src.core import VectorStorage, models, requests, services
 
-cache_service = CacheService()
+logger = logging.getLogger(__name__)
 
 
 class SemanticCaching(object):
-    def __init__(self, json_file: str = 'cache.json', threshold: int = 0.3, encoder_model: str = 'all-mpnet-base-v2'):
+    """
+    A class for caching and retrieving semantic search results to improve efficiency and response time.
+    """
 
-        # Initialize Sentence Transformer model
+    def __init__(self, threshold: int = 0.8, encoder_model: str = 'all-mpnet-base-v2'):
+        """
+        Initializes the SemanticCaching instance.
+
+        Args:
+            threshold (float): The similarity threshold for considering a cache hit.
+            encoder_model (str): The model used by SentenceTransformer for encoding sentences.
+        """
+        self.cache_service = services.CacheService()
         self.encoder = SentenceTransformer(encoder_model)
-
-        # initialize Qdrant vectordb
-        self.vectorDb = VectorDB(
+        self.vectorDb = VectorStorage.VectorDB(
             vector_size=self.encoder.get_sentence_embedding_dimension())
+        self._distance_threshold = threshold
+        self.cache = models.CacheBase()
 
-        # Set Euclidean distance threshold
-        self.distance_threshold = threshold
-        self.cache: CacheBase = CacheBase()
-        self.load_cache()
+    @property
+    def distance_threshold(self):
+        """Returns the current distance threshold."""
+        return self._distance_threshold
 
-    def load_cache(self):
-        try:
-            self.cache: CacheBase = cache_service.find()
-            first_result = next(self.cache, None)
-            if first_result is None:  # If no document is found, result is empty
-                self.cache = CacheBase()
-                print("Cache initialized as it was empty: ", self.cache)
-        except pymongo.errors.PyMongoError as e:  
-            print(f"Error accessing MongoDB: {e}")
-            self.cache = CacheBase()
-            print("Cache initialized due to MongoDB error: ", self.cache)
-
+    @distance_threshold.setter
+    def distance_threshold(self, threshold):
+        """Sets a new distance threshold."""
+        self._distance_threshold = threshold
 
     def save_cache(self):
-        cache_service.insert_one(self.cache.__dict__)
+        """Inserts the current cache state into the database."""
+        try:
+            logging.info("Inserting data to cache db.")
+            self.cache_service.insert_one(self.cache.serialize())
+        except pymongo.errors.PyMongoError as e:
+            logging.error(f"Error inserting data to MongoDB: {e}")
 
     def ask(self, question: str) -> str:
+        """
+        Processes a question, checks for cache hits, and returns the corresponding answer.
 
-        start_time = time.time()
+        Args:
+            question (str): The question to process.
+
+        Returns:
+            str: The answer to the question.
+        """
         try:
+            start_time = time.time()
+            metadata: Dict = {}
+
+            # encoding the question using sentence transformer
             embedding = self.encoder.encode(question).tolist()
 
+            # identify the points from the vectors
             points = self.vectorDb.search(query_vector=embedding)
-            print("Points: ", points)
 
-            if points:
-                point_id = points[0].id
-                distance = points[0].score
-                print("distance: ", distance)
-
-                if distance >= self.distance_threshold:
-                    print(
-                        f'Found cache in row: {point_id} with score {distance}')
-                    end_time = time.time()
-                    elapsed_time = end_time - start_time
-                    print(f"Time taken: {elapsed_time} seconds")
-
-                    # Assuming you have a method to retrieve response text by id
-                    return self.cache['response_text'][point_id]
-
-                    # row_id = int(I[0][0])
-                    # print(
-                    #     f'Found cache in row: {row_id} with score {1 - D[0][0]}')
-                    # end_time = time.time()
-                    # elapsed_time = end_time - start_time
-                    # print(f"Time taken: {elapsed_time} seconds")
-                    # return self.cache['response_text'][row_id]
-
-            # Handle the case when there are not enough results or Euclidean distance is not met
-            answer, response_text = self.generate_answer(question)
-
-            self.cache.id = str(uuid.uuid4())
-            self.cache.question = question
-            self.cache.embedding = embedding
-            self.cache.answer = answer
-            self.cache.response_text = response_text
-
-            # self.index.add(embedding)
-            self.vectorDb.upsert(embeddings=embedding, point_id = self.cache.id, metadata=None)
-            self.save_cache()
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            print(f"Time taken: {elapsed_time} seconds")
-
-            return response_text
+            return self.evaluate_similarity(points=points, start_time=start_time, question=question, embedding=embedding, metadata=metadata)
         except Exception as e:
-            raise RuntimeError(f"Error during 'ask' method: {e}")
+            logger.error(f"Error during 'ask' method: {e}")
+            raise
 
-    def generate_answer(self, question: str) -> str:
-        # Method to generate an answer using a separate function (make_prediction in this case)
+    def evaluate_similarity(self, points: List[Dict], start_time: float, question: str, embedding: List[float], metadata: Optional[Dict]) -> str:
+        """
+        Evaluates similarity of the given points to the query and handles cache hits or misses accordingly.
+
+        Args:
+            points (List[Dict]): A list of points from the vector database search.
+            start_time (float): The start time of the query processing for timing analytics.
+            question (str): The original question asked.
+            embedding (List[float]): The embedding vector of the question.
+            metadata (Optional[Dict]): The metadata to add to the vector db.
+
+        Returns:
+            str: The answer to the question, either from cache or freshly generated.
+        """
+        if points:
+            point = points[0]
+            score = point.score
+            print("Score: ", score)
+
+            # identify the distance metric to compare score with threshold
+            is_hit = False
+
+            if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
+                is_hit = score > self.distance_threshold
+
+            else:
+                is_hit = score <= self.distance_threshold
+
+            print(
+                f'Distance metric used is {self.vectorDb.distance_metric.lower()}')
+
+            if is_hit:
+                result = self.handle_cache_hit(
+                    point_id=point.id, distance=score)
+
+                if not result:
+                    print("Data doesn't seem to exist in the cache. Populating..")
+                    result = self.handle_cache_miss(
+                        question=question, embedding=embedding, point_id=point.id, metadata=metadata)
+                else:
+                    result = result['response_text']
+
+                self.display_elapsed_time(start_time)
+                return result
+
+        result = self.handle_cache_miss(question, embedding, metadata=metadata)
+        self.display_elapsed_time(start_time)
+        return result
+
+    def handle_cache_hit(self, point_id: str, distance: float) -> str:
+        """
+        Handles a cache hit by retrieving and returning the cached response.
+
+        Args:
+            point_id (str): The identifier of the cache hit point.
+            distance (float): The distance or similarity score of the hit.
+
+        Returns:
+            Dict: The cached document, if found.
+        """
+        logger.info(
+            f'Found cache hit: {point_id} with distance {distance}')
+        print("Getting response from cache ")
+        response_cursor = self.cache_service.find(
+            filter={"qdrant_id": point_id})
+
+        response_document = next(response_cursor, None)
+        return response_document
+
+    def handle_cache_miss(self, question: str, embedding: List, point_id: str = None, metadata: Dict = None) -> str:
+        """
+        Handles a cache miss by generating an answer, adding it to the cache, and returning the response.
+
+        Args:
+            question (str): The question asked.
+            embedding (List[float]): The embedding of the question.
+            point_id (str, optional): The point ID if available. Defaults to None.
+            metadata (Optional[Dict]): The metadata to add to the vector db.
+
+        Returns:
+            str: The generated answer to the question.
+        """
+        print("Cache not found. Fetching data..")
+        logger.info("Cache not found. Fetching data .. ")
+        answer, response_text = self.generate_answer(question)
+
+        self.add_to_cache(question, embedding, answer,
+                          response_text, point_id=point_id, metadata=metadata)
+        return response_text
+
+    def add_to_cache(self, question: str, embedding: List[float], answer: str, response_text: str, point_id: str = None, metadata: Dict = None) -> None:
+        """
+        Adds a new entry to the cache.
+
+        Args:
+            question (str): The question asked.
+            embedding (List[float]): The embedding of the question.
+            answer (str): The answer to the question.
+            response_text (str): The response text to be cached.
+            point_id (str, optional): An optional point ID. Generates a new UUID if None.
+            metadata (Optional[Dict]): The metadata to add to the vector db.
+
+        """
+        point_id = point_id if point_id else str(uuid.uuid4())
+        self.cache.qdrant_id = point_id
+        self.cache.question = question
+        self.cache.embedding = embedding
+        self.cache.answer = answer
+        self.cache.response_text = response_text
+
+        self.vectorDb.upsert(embeddings=embedding,
+                             point_id=point_id, metadata=metadata)
+        self.save_cache()
+
+    def generate_answer(self, question: str) -> Tuple[str, str]:
+        """
+        Generates an answer for a given question.
+
+        Args:
+            question (str): The question to answer.
+
+        Returns:
+            Tuple[str, str]: The answer and the response text.
+        """
         try:
-            result = make_prediction(question)
-            response_text = result['data']['response_text']
-
-            return result, response_text
+            result = requests.get_answer(question)
+            return result['data'], result['data']['response_text']
         except Exception as e:
-            raise RuntimeError(f"Error during 'generate_answer' method: {e}")
+            raise RuntimeError(f"Error during 'generate_answer': {e}")
+
+    def display_elapsed_time(self, start_time):
+        """
+        Logs the elapsed time since the provided start time.
+
+        Args:
+            start_time (float): The start time to measure from.
+        """
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Time to respond: {elapsed_time} seconds")
+        logging.info(f"Time taken: {elapsed_time} seconds")
