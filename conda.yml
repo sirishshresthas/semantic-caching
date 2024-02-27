@@ -1,0 +1,14 @@
+name: vcache
+channels: 
+  - conda-forge
+dependencies: 
+  - python=3.11.0
+  - pydantic=2.6.1
+  - pydantic-settings=2.1.0
+  - pymongo=4.6.2
+  - ipywidgets=8.1.2
+  - pip=24.0
+  - pip:
+    - qdrant_client=1.7.3
+    - sentence_transformers=2.4.0
+  
