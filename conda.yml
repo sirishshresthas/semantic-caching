@@ -1,13 +1,14 @@
 name: vcache
 channels: 
   - conda-forge
+  - pytorch
 dependencies: 
   - python=3.11.0
   - pydantic=2.6.1
   - pydantic-settings=2.1.0
   - pymongo=4.6.2
   - ipywidgets=8.1.2
-  - pytorch=2.1.2
+  - pytorch
   - huggingface_hub=0.21.3
   - pip=24.0
   - pip:

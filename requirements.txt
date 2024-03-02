@@ -1,6 +1,6 @@
 pydantic==2.6.1
 pydantic-settings==2.1.0
-pytorch==2.1.2
+torch==2.2.1
 sentence_transformers==2.4.0
 numpy==1.26.4
 qdrant_client==1.7.3
