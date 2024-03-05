@@ -128,8 +128,7 @@ class SemanticCaching(object):
         if points:
             point = points[0]
             score = point.score
-            print("Score: ", score)
-
+            
             # identify the distance metric to compare score with threshold
             is_hit = False
 
