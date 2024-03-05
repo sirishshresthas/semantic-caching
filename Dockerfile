@@ -4,7 +4,7 @@ LABEL maintainer="Sirish Shrestha <sirish_dot_shrestha_at_gmail_dot_com"
 WORKDIR /usr/src/app
 RUN apt-get -y update && \
     apt-get -y upgrade && \
-    apt-get install -y gcc python3-dev && \
+    apt-get install -y gcc git python3-dev && \
     pip install --upgrade pip && \
     apt-get purge && \
     apt-get clean all && \

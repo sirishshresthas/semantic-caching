@@ -2,13 +2,16 @@ import logging
 from typing import Dict, Optional
 
 import requests
+import torch
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig, pipeline)
 
 from src.core.utilities import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_answer(data: str) -> Optional[Dict]:
+def _get_answer_from_service(data: str) -> Dict:
     """
     Sends a request to an ARES API with the provided question and returns the answer.
 
@@ -53,3 +56,58 @@ def get_answer(data: str) -> Optional[Dict]:
         logger.error(
             f"Request failed with status code {response.status_code}: {response.text}")
         return None
+
+
+def _get_answer_from_llm(data: str, base_model_id: str = ""):
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16
+    )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        base_model_id, quantization_config=bnb_config)
+
+    # left padding saves memory
+    tokenizer = AutoTokenizer.from_pretrained(
+        base_model_id,
+        model_max_length=4092,
+        padding_side="left",
+        add_eos_token=True)
+
+
+    pipe = pipeline(
+        "text-generation", 
+        model=model, 
+        tokenizer=tokenizer,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
+    sequences = pipe(
+        data, 
+        do_sample = True, 
+        max_new_tokens = 100, 
+        temperature=0.7, 
+        top_k=50, 
+        top_p=0.90,
+        num_return_sequences = 1
+    )
+
+    print(sequences[0]['generated_text'])
+    return sequences[0]['generated_text']
+
+
+
+
+def get_answer(data: str, model_id: str = "") -> Dict:
+
+    if model_id == "":
+        answer: Dict = _get_answer_from_service(data)
+
+    else: 
+        answer = _get_answer_from_llm(data, model_id)
+
+    return answer

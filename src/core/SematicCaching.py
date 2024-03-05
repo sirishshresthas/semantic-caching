@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 import uuid
@@ -30,12 +31,13 @@ class SemanticCaching(object):
         self.cache_service = services.CacheService()
         self.encoder = SentenceTransformer(encoder_model)
         self.vectorDb = VectorStorage.VectorDB(
-            vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric = distance_metric)
+            vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric=distance_metric)
         self._distance_threshold = threshold
         self.cache = models.CacheBase()
 
         logger.info("Initiating SemanticCaching.")
-        logger.info(f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
+        logger.info(
+            f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
 
     @property
     def distance_threshold(self):
@@ -47,6 +49,11 @@ class SemanticCaching(object):
         """Sets a new distance threshold."""
         self._distance_threshold = threshold
 
+    def is_cuda_available(self): 
+        import torch
+        is_cuda: bool = torch.cuda.is_available()
+        print(f"Cuda is {'available' if is_cuda else 'not available'}")
+
     def save_cache(self):
         """Inserts the current cache state into the database."""
         try:
@@ -55,16 +62,38 @@ class SemanticCaching(object):
         except pymongo.errors.PyMongoError as e:
             logging.error(f"Error inserting data to MongoDB: {e}")
 
-    def ask(self, question: str) -> str:
+    def ask(self, question: str, use_llm: bool = False, model_id: str = "mistralai/Mistral-7B-v0.1") -> str:
         """
         Processes a question, checks for cache hits, and returns the corresponding answer.
 
         Args:
             question (str): The question to process.
+            use_llm (bool): True if the response should come from LLM directly. Default is False.
+            model_id (str): The Huggingface model id to download the model. This should be paired with use_llm
 
         Returns:
             str: The answer to the question.
         """
+        if not use_llm:
+            model_id = ""
+        if use_llm and model_id != "":
+            msg: str = f"Generating answer using {model_id}"
+            logger.info(msg)
+            print(msg)
+            
+
+        elif use_llm and model_id == "":
+            msg: str = "Error: It seems you're attempting to generate an answer using the Large Language Model (LLM), but the specific Model ID required to initiate the process is missing. Providing the Model ID is crucial for accurate and targeted responses."
+
+            logger.error(
+                "Error: Missing Model ID for Large Language Model (LLM)")
+
+            raise ValueError(msg)
+        
+        if not self.is_cuda_available(): 
+                logger.error("Cuda is not available for this device. Defaulting to ARES API.")
+                use_llm = False
+
         try:
             logger.info("Asking question")
             start_time = time.time()
@@ -77,12 +106,12 @@ class SemanticCaching(object):
             points = self.vectorDb.search(query_vector=embedding)
 
             logger.info("Evaluating similarity in the database.")
-            return self.evaluate_similarity(points=points, start_time=start_time, question=question, embedding=embedding, metadata=metadata)
+            return self.evaluate_similarity(points=points, start_time=start_time, question=question, embedding=embedding, metadata=metadata, model_id=model_id)
         except Exception as e:
             logger.error(f"Error during 'ask' method: {e}")
             raise
 
-    def evaluate_similarity(self, points: List[Dict], start_time: float, question: str, embedding: List[float], metadata: Optional[Dict]) -> str:
+    def evaluate_similarity(self, points: List[Dict], start_time: float, question: str, embedding: List[float], metadata: Dict, model_id: str = "") -> str:
         """
         Evaluates similarity of the given points to the query and handles cache hits or misses accordingly.
 
@@ -91,7 +120,7 @@ class SemanticCaching(object):
             start_time (float): The start time of the query processing for timing analytics.
             question (str): The original question asked.
             embedding (List[float]): The embedding vector of the question.
-            metadata (Optional[Dict]): The metadata to add to the vector db.
+            metadata (Dict): The metadata to add to the vector db.
 
         Returns:
             str: The answer to the question, either from cache or freshly generated.
@@ -99,12 +128,12 @@ class SemanticCaching(object):
         if points:
             point = points[0]
             score = point.score
-            print("Score: ", score)
-
+            
             # identify the distance metric to compare score with threshold
             is_hit = False
 
-            logger.info(f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
+            logger.info(
+                f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
             if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
                 is_hit = score > self.distance_threshold
 
@@ -117,9 +146,10 @@ class SemanticCaching(object):
 
                 if not result:
                     print("Data doesn't seem to exist in the cache. Populating..")
-                    logger.info("Data doesn't seem to exist in the cache. Populating..")
+                    logger.info(
+                        "Data doesn't seem to exist in the cache. Populating..")
                     result = self.handle_cache_miss(
-                        question=question, embedding=embedding, point_id=point.id, metadata=metadata)
+                        question=question, embedding=embedding, point_id=point.id, metadata=metadata, model_id=model_id)
                     logger.info("Result: ", result)
                 else:
                     result = result['response_text']
@@ -127,8 +157,9 @@ class SemanticCaching(object):
                 self.display_elapsed_time(start_time)
                 return result
 
-        result = self.handle_cache_miss(question, embedding, metadata=metadata)
-        logger.info("Result: ", result)
+        result = self.handle_cache_miss(
+            question, embedding, metadata=metadata, model_id=model_id)
+        logger.info(f"Result: result")
         self.display_elapsed_time(start_time)
         return result
 
@@ -146,15 +177,15 @@ class SemanticCaching(object):
         logger.info(
             f'Found cache hit: {point_id} with distance {distance}')
         print(f'Found cache hit: {point_id} with distance {distance}')
-        
+
         response_cursor = self.cache_service.find(
             filter={"qdrant_id": point_id})
 
         response_document = next(response_cursor, None)
         return response_document
 
-    def handle_cache_miss(self, question: str, embedding: List, point_id: str = None, metadata: Dict = None) -> str:
-        """
+    def handle_cache_miss(self, question: str, embedding: List, point_id: str = None, metadata: Dict = None, model_id: str = '') -> str:
+        """ 
         Handles a cache miss by generating an answer, adding it to the cache, and returning the response.
 
         Args:
@@ -168,7 +199,8 @@ class SemanticCaching(object):
         """
         print("Cache not found. Fetching data..")
         logger.info("Cache not found. Fetching data .. ")
-        answer, response_text = self.generate_answer(question)
+        answer, response_text = self.generate_answer(
+            question, model_id)
 
         self.add_to_cache(question, embedding, answer,
                           response_text, point_id=point_id, metadata=metadata)
@@ -200,7 +232,7 @@ class SemanticCaching(object):
                              point_id=point_id, metadata=metadata)
         self.save_cache()
 
-    def generate_answer(self, question: str) -> Tuple[str, str]:
+    def generate_answer(self, question: str, model_id: str = "") -> Tuple[str, str]:
         """
         Generates an answer for a given question.
 
@@ -210,12 +242,18 @@ class SemanticCaching(object):
         Returns:
             Tuple[str, str]: The answer and the response text.
         """
-        try:
-            logger.info("Getting answer from Ares.")
-            result = requests.get_answer(question)
-            return result['data'], result['data']['response_text']
-        except Exception as e:
-            raise RuntimeError(f"Error during 'generate_answer': {e}")
+
+        if model_id != "":
+            result = requests.get_answer(question, model_id=model_id)
+            print(result)
+
+        else:
+            try:
+                logger.info("Getting answer from Ares.")
+                result = requests.get_answer(question)
+                return result['data'], result['data']['response_text']
+            except Exception as e:
+                raise RuntimeError(f"Error during 'generate_answer': {e}")
 
     def display_elapsed_time(self, start_time):
         """
