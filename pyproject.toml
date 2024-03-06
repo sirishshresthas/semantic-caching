@@ -1,18 +1,57 @@
-[project]
-name = "semantic_caching_sirishshresthas"
-version = "0.0.1"
+[tool.poetry]
+name = "semantic-caching"
+version = "1.0.0"
 authors = [
-  { name="Sirish Shrestha", email="sirish.shrestha@gmail.com" },
+  "Sirish Shrestha <sirish.shrestha@gmail.com>",
 ]
-description = "Semantic Caching enhances the efficiency of semantic search operations by caching query results, thereby reducing redundant computations and trips to the LLM for similar queries. This approach speeds up response times, decreases computational load, and minimizes costs. The project utilizes a sentence transformer model for semantic understanding and integrates with the Qdrant vector database for storing and searching embeddings."
+maintainers = [
+  "Sirish Shrestha <sirish.shrestha@gmail.com>",
+]
+description = "A Python package leveraging Semantic Caching to enhance efficiency in semantic search operations. By caching query results, reducing redundant computations, and integrating with the Qdrant vector database, this package accelerates response times, minimizes computational load, and lowers costs."
 readme = "README.md"
-requires-python = ">=3.8"
+repository = "https://github.com/sirishshresthas/semantic-caching"
+documentation = "https://github.com/sirishshresthas/semantic-caching/docs"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU GPLv3",
     "Operating System :: OS Independent",
+    "Development-Staus :: 4 - Beta",
+    "Intended-Audience :: Developers", 
+    "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
-[project.urls]
-Homepage = "https://github.com/sirishshresthas/semantic-caching"
-Issues = "https://github.com/sirishshresthas/semantic-caching/issues"
+[too.poetry.urls]
+"Homepage" = "https://github.com/sirishshresthas/semantic-caching"
+"Issues" = "https://github.com/sirishshresthas/semantic-caching/issues"
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "^2.6.1"
+pydantic-settings = "^2.1.0"
+torch = "^2.2.1"
+sentence_transformers = "^2.4.0"
+numpy = "^1.26.0"
+qdrant_client = "^1.7.3"
+pymongo = "^4.6.2"
+ipywidgets = "^8.1.2"
+huggingface_hub = "*"
+accelerate = "*"
+bitsandbytes = "*"
+transformers = { git = "https://github.com/huggingface/transformers" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "wheel"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pylint]
+max-line-length = 88
+disable = [
+    "C0103", # (invalid-name)
+    "C0114", # (missing-module-docstring)
+    "C0115", # (missing-class-docstring)
+    "C0116", # (missing-function-docstring)
+    "R0903", # (too-few-public-methods)
+    "R0913", # (too-many-arguments)
+    "W0105", # (pointless-string-statement)
+]

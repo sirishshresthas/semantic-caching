@@ -11,6 +11,7 @@ dependencies:
   - pytorch
   - huggingface_hub=0.21.3
   - pip=24.0
+  - sphinx
   - pip:
     - qdrant_client=1.7.3
     - sentence_transformers=2.4.0
