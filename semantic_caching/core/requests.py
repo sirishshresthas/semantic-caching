@@ -6,7 +6,7 @@ import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           BitsAndBytesConfig, pipeline)
 
-from src.core.utilities import settings
+from semantic_caching.core.utilities import settings
 
 logger = logging.getLogger(__name__)
 

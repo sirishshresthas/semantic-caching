@@ -6,7 +6,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from requests.exceptions import ConnectionError, Timeout
 
-from src.core.utilities import settings
+from semantic_caching.core.utilities import settings
 
 logger = logging.getLogger(__name__)
 

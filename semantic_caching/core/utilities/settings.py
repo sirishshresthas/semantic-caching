@@ -1,6 +1,6 @@
 import os
 
-from src.core.utilities import EXPORT_CONFIG
+from semantic_caching.core.utilities import EXPORT_CONFIG
 
 ENV = os.getenv("PROJECT_ENVIRONMENT", "dev")
 

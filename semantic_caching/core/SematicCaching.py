@@ -7,8 +7,8 @@ from typing import Dict, List, Optional, Tuple
 import pymongo
 from sentence_transformers import SentenceTransformer
 
-from src.core import VectorStorage, models, requests, services
-from src.core.utilities import setup_logging
+from semantic_caching.core import VectorStorage, models, requests, services
+from semantic_caching.core.utilities import setup_logging
 
 setup_logging(log_file="cache.log")
 logger = logging.getLogger(__name__)

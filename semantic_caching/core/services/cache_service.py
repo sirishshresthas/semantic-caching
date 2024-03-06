@@ -1,4 +1,4 @@
-from src.core.utilities import settings
+from semantic_caching.core.utilities import settings
 
 from .base import BaseService
 

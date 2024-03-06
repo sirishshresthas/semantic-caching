@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "src"
+name = "semantic_caching"
 version = "1.0.0"
 authors = [
   "Sirish Shrestha <sirish.shrestha@gmail.com>",
