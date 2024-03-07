@@ -2,7 +2,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import pymongo
 from sentence_transformers import SentenceTransformer
@@ -19,7 +19,7 @@ class SemanticCaching(object):
     A class for caching and retrieving semantic search results to improve efficiency and response time.
     """
 
-    def __init__(self, threshold: int = 0.8, encoder_model: str = 'all-mpnet-base-v2', distance_metric: str = 'cosine'):
+    def __init__(self, threshold: int = 0.8):
         """
         Initializes the SemanticCaching instance.
 
@@ -29,15 +29,10 @@ class SemanticCaching(object):
             distance_metric (str): Distance metric to use in Qdrant collection while creating it. It defaults to cosine. Available are dot, cosine, euclidean, manhattan.
         """
         self.cache_service = services.CacheService()
-        self.encoder = SentenceTransformer(encoder_model)
-        self.vectorDb = VectorStorage.VectorDB(
-            vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric=distance_metric)
         self._distance_threshold = threshold
         self.cache = models.CacheBase()
 
         logger.info("Initiating SemanticCaching.")
-        logger.info(
-            f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
 
     @property
     def distance_threshold(self):
@@ -53,6 +48,17 @@ class SemanticCaching(object):
         import torch
         is_cuda: bool = torch.cuda.is_available()
         print(f"Cuda is {'available' if is_cuda else 'not available'}")
+
+
+    def init_vector_db(self, distance_metric: str = 'cosine', encoder_model: str = 'all-mpnet-base-v2'):
+        logger.info("Initiating vector db")
+
+        self.encoder = SentenceTransformer(encoder_model)
+        self.vectorDb = VectorStorage.VectorDB(
+            vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric=distance_metric)
+        
+        logger.info(
+            f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
 
     def save_cache(self):
         """Inserts the current cache state into the database."""
