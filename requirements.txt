@@ -6,6 +6,7 @@ transformers
 qdrant_client==1.7.3
 pymongo==4.6.2
 ipywidgets==8.1.2
+ipykernel
 huggingface_hub
 accelerate
 bitsandbytes
