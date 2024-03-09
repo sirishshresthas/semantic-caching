@@ -58,7 +58,9 @@ def _get_answer_from_service(data: str) -> Dict:
         return None
 
 
-def _get_answer_from_llm(prompt: str, base_model_id: str = ""):
+def _get_answer_from_llm(prompt: str, base_model_id: str = "", max_new_tokens: int = 4096):
+
+    prompt = f"[INST]{prompt}[/INST]"
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -85,10 +87,13 @@ def _get_answer_from_llm(prompt: str, base_model_id: str = ""):
 
     model_inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
 
-    generated_ids = model.generate(model_inputs, max_new_tokens=4096, do_sample=True)
+    generated_ids = model.generate(model_inputs, max_new_tokens=max_new_tokens, do_sample=True)
 
     response_text = tokenizer.batch_decode(generated_ids)[0]
     print(response_text)
+    # response_text = response_text.split("[INST]")[1].split("</s>")[0].strip()
+
+    # print(response_text)    
     return response_text
 
 
@@ -101,5 +106,6 @@ def get_answer(data: str, model_id: str = "") -> Dict:
 
     else: 
         answer = _get_answer_from_llm(data, model_id)
+        answer = { "data": { "response_text": answer } }
 
     return answer

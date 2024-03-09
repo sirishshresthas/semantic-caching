@@ -251,7 +251,8 @@ class SemanticCaching(object):
 
         if model_id != "":
             result = requests.get_answer(question, model_id=model_id)
-            print(result)
+            print("result: ", result)
+            return result['data'], result['data']['response_text']
 
         else:
             try:
