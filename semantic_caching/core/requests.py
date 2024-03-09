@@ -60,8 +60,6 @@ def _get_answer_from_service(data: str) -> Dict:
 
 def _get_answer_from_llm(prompt: str, base_model_id: str = "", max_new_tokens: int = 4096):
 
-    prompt = f"[INST]{prompt}[/INST]"
-
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_use_double_quant=True,
@@ -80,23 +78,25 @@ def _get_answer_from_llm(prompt: str, base_model_id: str = "", max_new_tokens: i
         base_model_id,
         padding_side="left",
         add_eos_token=True)
-    
+
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
     messages = [
-        {"role": "user", "content": prompt}
+        {"role": "user",
+         "content": prompt
+         }
     ]
 
-    model_inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
+    response_text = pipe(messages, max_new_tokens=4096)[
+        0]['generated_text'][-1]
 
-    generated_ids = model.generate(model_inputs, max_new_tokens=max_new_tokens, do_sample=True)
-
-    response_text = tokenizer.batch_decode(generated_ids)[0]
-    print(response_text)
-    # response_text = response_text.split("[INST]")[1].split("</s>")[0].strip()
-
-    # print(response_text)    
-    return response_text
-
-
+    return response_text['content'].strip()
 
 
 def get_answer(data: str, model_id: str = "") -> Dict:
@@ -104,8 +104,8 @@ def get_answer(data: str, model_id: str = "") -> Dict:
     if model_id == "":
         answer: Dict = _get_answer_from_service(data)
 
-    else: 
+    else:
         answer = _get_answer_from_llm(data, model_id)
-        answer = { "data": { "response_text": answer } }
+        answer = {"data": {"response_text": answer}}
 
     return answer

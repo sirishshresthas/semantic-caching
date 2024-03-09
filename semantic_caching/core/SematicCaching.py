@@ -44,11 +44,10 @@ class SemanticCaching(object):
         """Sets a new distance threshold."""
         self._distance_threshold = threshold
 
-    def is_cuda_available(self): 
+    def is_cuda_available(self):
         import torch
         is_cuda: bool = torch.cuda.is_available()
         print(f"Cuda is {'available' if is_cuda else 'not available'}")
-
 
     def init_vector_db(self, distance_metric: str = 'cosine', encoder_model: str = 'all-mpnet-base-v2'):
         logger.info("Initiating vector db")
@@ -56,7 +55,7 @@ class SemanticCaching(object):
         self.encoder = SentenceTransformer(encoder_model)
         self.vectorDb = VectorStorage.VectorDB(
             vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric=distance_metric)
-        
+
         logger.info(
             f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
 
@@ -86,7 +85,6 @@ class SemanticCaching(object):
             msg: str = f"Generating answer using {model_id}"
             logger.info(msg)
             print(msg)
-            
 
         elif use_llm and model_id == "":
             msg: str = "Error: It seems you're attempting to generate an answer using the Large Language Model (LLM), but the specific Model ID required to initiate the process is missing. Providing the Model ID is crucial for accurate and targeted responses."
@@ -95,10 +93,11 @@ class SemanticCaching(object):
                 "Error: Missing Model ID for Large Language Model (LLM)")
 
             raise ValueError(msg)
-        
-        if not self.is_cuda_available(): 
-                logger.error("Cuda is not available for this device. Defaulting to ARES API.")
-                use_llm = False
+
+        if not self.is_cuda_available():
+            logger.error(
+                "Cuda is not available for this device. Defaulting to ARES API.")
+            use_llm = False
 
         try:
             logger.info("Asking question")
@@ -134,7 +133,7 @@ class SemanticCaching(object):
         if points:
             point = points[0]
             score = point.score
-            
+
             # identify the distance metric to compare score with threshold
             is_hit = False
 
