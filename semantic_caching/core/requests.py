@@ -58,7 +58,7 @@ def _get_answer_from_service(data: str) -> Dict:
         return None
 
 
-def _get_answer_from_llm(data: str, base_model_id: str = ""):
+def _get_answer_from_llm(prompt: str, base_model_id: str = ""):
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -68,36 +68,28 @@ def _get_answer_from_llm(data: str, base_model_id: str = ""):
     )
 
     model = AutoModelForCausalLM.from_pretrained(
-        base_model_id, quantization_config=bnb_config)
+        base_model_id,
+        device_map="auto",
+        low_cpu_mem_usage=True,
+        quantization_config=bnb_config)
 
     # left padding saves memory
     tokenizer = AutoTokenizer.from_pretrained(
         base_model_id,
-        model_max_length=4092,
         padding_side="left",
         add_eos_token=True)
+    
+    messages = [
+        {"role": "user", "content": prompt}
+    ]
 
+    model_inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
 
-    pipe = pipeline(
-        "text-generation", 
-        model=model, 
-        tokenizer=tokenizer,
-        torch_dtype=torch.bfloat16,
-        device_map="auto"
-    )
+    generated_ids = model.generate(model_inputs, max_new_tokens=4096, do_sample=True)
 
-    sequences = pipe(
-        data, 
-        do_sample = True, 
-        max_new_tokens = 100, 
-        temperature=0.7, 
-        top_k=50, 
-        top_p=0.90,
-        num_return_sequences = 1
-    )
-
-    print(sequences[0]['generated_text'])
-    return sequences[0]['generated_text']
+    response_text = tokenizer.batch_decode(generated_ids)[0]
+    print(response_text)
+    return response_text
 
 
 

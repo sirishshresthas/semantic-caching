@@ -68,7 +68,7 @@ class SemanticCaching(object):
         except pymongo.errors.PyMongoError as e:
             logging.error(f"Error inserting data to MongoDB: {e}")
 
-    def ask(self, question: str, use_llm: bool = False, model_id: str = "mistralai/Mistral-7B-v0.1") -> str:
+    def ask(self, question: str, use_llm: bool = False, model_id: str = "mistralai/Mistral-7B-Instruct-v0.2") -> str:
         """
         Processes a question, checks for cache hits, and returns the corresponding answer.
 
