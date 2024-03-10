@@ -178,8 +178,7 @@ class SemanticCaching(object):
                     logger.info("Result: ", result)
                 else:
                     result = result['response_text']
-
-            return result
+                    return result
 
         result = self.handle_cache_miss(
             question, embedding, metadata=metadata, model_id=model_id)
