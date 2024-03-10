@@ -79,6 +79,9 @@ def _get_answer_from_llm(prompt: str, base_model_id: str = "", max_new_tokens: i
         base_model_id,
         padding_side="left",
         add_eos_token=True)
+    
+    if tokenizer.pad_token is None: 
+      tokenizer.pad_token = tokenizer.eos_token
 
     pipe = pipeline(
         "text-generation",
@@ -111,5 +114,5 @@ def get_answer(data: str, model_id: str = "") -> Dict:
         answer = _get_answer_from_llm(data, model_id)
         answer = {"data": {"response_text": answer}}
         console_logger.end_timer()
-        
+
     return answer
