@@ -170,7 +170,7 @@ class SemanticCaching(object):
                     point_id=point.id, distance=score)
 
                 if not result:
-                    console_logger.start_timer("Data doesn't seem to exist in the cache. Populating..")
+                    console_logger.start_timer("Data doesn't exist in the cache. Populating..")
                     logger.info(
                         "Data doesn't seem to exist in the cache. Populating..")
                     result = self.handle_cache_miss(
@@ -222,7 +222,7 @@ class SemanticCaching(object):
             str: The generated answer to the question.
         """
 
-        console_logger.start_time("Cache not found .. fetching data")
+        console_logger.start_timer("Cache not found .. fetching data")
         answer, response_text = self.generate_answer(
             question, model_id)
         
