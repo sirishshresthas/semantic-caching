@@ -6,8 +6,9 @@ import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           BitsAndBytesConfig, pipeline)
 
-from semantic_caching.core.utilities import settings
+from semantic_caching.core.utilities import ConsoleLogger, settings
 
+console_logger = ConsoleLogger()
 logger = logging.getLogger(__name__)
 
 
@@ -102,10 +103,13 @@ def _get_answer_from_llm(prompt: str, base_model_id: str = "", max_new_tokens: i
 def get_answer(data: str, model_id: str = "") -> Dict:
 
     if model_id == "":
+        console_logger.start_timer("Fetching data from ARES API... ")
         answer: Dict = _get_answer_from_service(data)
-
+        console_logger.end_timer()
     else:
+        console_logger.start_timer(f"Using {model_id} to generate answer .. ")
         answer = _get_answer_from_llm(data, model_id)
         answer = {"data": {"response_text": answer}}
-
+        console_logger.end_timer()
+        
     return answer

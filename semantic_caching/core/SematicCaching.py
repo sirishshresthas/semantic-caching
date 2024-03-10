@@ -1,18 +1,19 @@
-import json
 import logging
 import time
 import uuid
 from typing import Dict, List, Tuple
 
 import pymongo
+import torch
 from sentence_transformers import SentenceTransformer
 
 from semantic_caching.core import VectorStorage, models, requests, services
-from semantic_caching.core.utilities import setup_logging
+from semantic_caching.core.utilities import ConsoleLogger, setup_logging
 
 setup_logging(log_file="cache.log")
 logger = logging.getLogger(__name__)
 
+console_logger = ConsoleLogger()
 
 class SemanticCaching(object):
     """
@@ -28,10 +29,13 @@ class SemanticCaching(object):
             encoder_model (str): The model used by SentenceTransformer for encoding sentences.
             distance_metric (str): Distance metric to use in Qdrant collection while creating it. It defaults to cosine. Available are dot, cosine, euclidean, manhattan.
         """
+        console_logger.start_timer("Initializing mongodb..... ")
+
         self.cache_service = services.CacheService()
         self._distance_threshold = threshold
         self.cache = models.CacheBase()
 
+        console_logger.end_timer()
         logger.info("Initiating SemanticCaching.")
 
     @property
@@ -44,26 +48,44 @@ class SemanticCaching(object):
         """Sets a new distance threshold."""
         self._distance_threshold = threshold
 
-    def is_cuda_available(self):
-        import torch
+    @staticmethod
+    def is_cuda_available() -> bool:
         is_cuda: bool = torch.cuda.is_available()
-        print(f"Cuda is {'available' if is_cuda else 'not available'}")
+        logger.info(f"CUDA is {'available' if is_cuda else 'not available'}")
+        return is_cuda
 
     def init_vector_db(self, distance_metric: str = 'cosine', encoder_model: str = 'all-mpnet-base-v2'):
         logger.info("Initiating vector db")
+        
+        ## sentence encoder
+        console_logger.start_timer("Initializing encoder...")
 
         self.encoder = SentenceTransformer(encoder_model)
+
+        console_logger.end_timer()
+        
+        ## vector database
+        console_logger.start_timer("Initializing Qdrant vector db..... ")
+        
         self.vectorDb = VectorStorage.VectorDB(
             vector_size=self.encoder.get_sentence_embedding_dimension(), distance_metric=distance_metric)
+
+        console_logger.end_timer()
 
         logger.info(
             f"encoder_model={encoder_model}; vector_size={self.encoder.get_sentence_embedding_dimension()}; distance_threshold={self._distance_threshold}")
 
+
     def save_cache(self):
         """Inserts the current cache state into the database."""
         try:
+            console_logger.start_timer("saving cache..... ")
+
             logging.info("Inserting data to mongo db. Collection: cache")
             self.cache_service.insert_one(self.cache.serialize())
+
+            console_logger.end_timer()
+
         except pymongo.errors.PyMongoError as e:
             logging.error(f"Error inserting data to MongoDB: {e}")
 
@@ -84,7 +106,6 @@ class SemanticCaching(object):
         if use_llm and model_id != "":
             msg: str = f"Generating answer using {model_id}"
             logger.info(msg)
-            print(msg)
 
         elif use_llm and model_id == "":
             msg: str = "Error: It seems you're attempting to generate an answer using the Large Language Model (LLM), but the specific Model ID required to initiate the process is missing. Providing the Model ID is crucial for accurate and targeted responses."
@@ -96,27 +117,27 @@ class SemanticCaching(object):
 
         if not self.is_cuda_available():
             logger.error(
-                "Cuda is not available for this device. Defaulting to ARES API.")
+                "CUDA is not available for this device. Defaulting to ARES API.")
             use_llm = False
 
         try:
-            logger.info("Asking question")
-            start_time = time.time()
+
             metadata: Dict = {}
 
             # encoding the question using sentence transformer
             embedding = self.encoder.encode(question).tolist()
 
-            # identify the points from the vectors
+            console_logger.start_timer("Searching for the answer in Qdrant.")
             points = self.vectorDb.search(query_vector=embedding)
+            console_logger.end_timer()
 
             logger.info("Evaluating similarity in the database.")
-            return self.evaluate_similarity(points=points, start_time=start_time, question=question, embedding=embedding, metadata=metadata, model_id=model_id)
+            return self.evaluate_similarity(points=points, question=question, embedding=embedding, metadata=metadata, model_id=model_id)
         except Exception as e:
             logger.error(f"Error during 'ask' method: {e}")
             raise
 
-    def evaluate_similarity(self, points: List[Dict], start_time: float, question: str, embedding: List[float], metadata: Dict, model_id: str = "") -> str:
+    def evaluate_similarity(self, points: List[Dict], question: str, embedding: List[float], metadata: Dict, model_id: str = "") -> str:
         """
         Evaluates similarity of the given points to the query and handles cache hits or misses accordingly.
 
@@ -133,39 +154,37 @@ class SemanticCaching(object):
         if points:
             point = points[0]
             score = point.score
+            # # identify the distance metric to compare score with threshold
+            # is_hit = False
 
-            # identify the distance metric to compare score with threshold
-            is_hit = False
+            # logger.info(
+            #     f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
+            # if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
+            #     is_hit = score > self.distance_threshold
 
-            logger.info(
-                f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
-            if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
-                is_hit = score > self.distance_threshold
+            # else:
+            #     is_hit = score <= self.distance_threshold
 
+            # if is_hit:
+            result = self.handle_cache_hit(
+                point_id=point.id, distance=score)
+
+            if not result:
+                console_logger.start_timer("Data doesn't seem to exist in the cache. Populating..")
+                logger.info(
+                    "Data doesn't seem to exist in the cache. Populating..")
+                result = self.handle_cache_miss(
+                    question=question, embedding=embedding, point_id=point.id, metadata=metadata, model_id=model_id)
+                logger.info("Result: ", result)
             else:
-                is_hit = score <= self.distance_threshold
+                result = result['response_text']
 
-            if is_hit:
-                result = self.handle_cache_hit(
-                    point_id=point.id, distance=score)
-
-                if not result:
-                    print("Data doesn't seem to exist in the cache. Populating..")
-                    logger.info(
-                        "Data doesn't seem to exist in the cache. Populating..")
-                    result = self.handle_cache_miss(
-                        question=question, embedding=embedding, point_id=point.id, metadata=metadata, model_id=model_id)
-                    logger.info("Result: ", result)
-                else:
-                    result = result['response_text']
-
-                self.display_elapsed_time(start_time)
-                return result
+            return result
 
         result = self.handle_cache_miss(
             question, embedding, metadata=metadata, model_id=model_id)
-        logger.info(f"Result: result")
-        self.display_elapsed_time(start_time)
+
+        console_logger.end_timer()
         return result
 
     def handle_cache_hit(self, point_id: str, distance: float) -> str:
@@ -181,10 +200,11 @@ class SemanticCaching(object):
         """
         logger.info(
             f'Found cache hit: {point_id} with distance {distance}')
-        print(f'Found cache hit: {point_id} with distance {distance}')
 
+        console_logger.start_timer("Retrieving from cache ... ")
         response_cursor = self.cache_service.find(
             filter={"qdrant_id": point_id})
+        console_logger.end_timer()
 
         response_document = next(response_cursor, None)
         return response_document
@@ -202,10 +222,12 @@ class SemanticCaching(object):
         Returns:
             str: The generated answer to the question.
         """
-        print("Cache not found. Fetching data..")
-        logger.info("Cache not found. Fetching data .. ")
+
+        console_logger.start_time("Cache not found .. fetching data")
         answer, response_text = self.generate_answer(
             question, model_id)
+        
+        console_logger.end_timer()
 
         self.add_to_cache(question, embedding, answer,
                           response_text, point_id=point_id, metadata=metadata)
@@ -233,8 +255,11 @@ class SemanticCaching(object):
         self.cache.response_text = response_text
 
         logger.info("Storing data to vector database.")
+        console_logger.start_timer("Storing vectors to Qdrant")
         self.vectorDb.upsert(embeddings=embedding,
                              point_id=point_id, metadata=metadata)
+        
+        console_logger.end_timer()
         self.save_cache()
 
     def generate_answer(self, question: str, model_id: str = "") -> Tuple[str, str]:
@@ -250,7 +275,6 @@ class SemanticCaching(object):
 
         if model_id != "":
             result = requests.get_answer(question, model_id=model_id)
-            print("result: ", result)
             return result['data'], result['data']['response_text']
 
         else:
@@ -260,15 +284,3 @@ class SemanticCaching(object):
                 return result['data'], result['data']['response_text']
             except Exception as e:
                 raise RuntimeError(f"Error during 'generate_answer': {e}")
-
-    def display_elapsed_time(self, start_time):
-        """
-        Logs the elapsed time since the provided start time.
-
-        Args:
-            start_time (float): The start time to measure from.
-        """
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"Time to respond: {elapsed_time} seconds")
-        logging.info(f"Time to respond: {elapsed_time} seconds")

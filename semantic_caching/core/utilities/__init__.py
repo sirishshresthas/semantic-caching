@@ -1,3 +1,4 @@
 from .config import EXPORT_CONFIG
-from .logger import setup_logging
+from .ConsoleLogger import ConsoleLogger
+from .logger import setup_console_logging, setup_logging
 from .settings import settings
