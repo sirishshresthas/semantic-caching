@@ -11,7 +11,7 @@ class ConsoleLogger(object):
         self.message = None
 
     def start_timer(self, message: str = ""):
-        self.message = f"[INFO] {message}"
+        self.message = f"\r[INFO] {message}"
         self.start_time = time.time()
         print(self.message, end='', flush=True)
         logger.info(self.message)
