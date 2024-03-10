@@ -27,8 +27,6 @@ class CommonSettings(Settings):
     ARES_URL: str = Field(default="", env="ARES_URL")
     ARES_API_KEY: str = Field(default="", env="ARES_API_KEY")
 
-    PROJECT_ENVIRONMENT: str = Field(default="dev", env="PROJECT_ENVIRONMENT")
-
     @property
     def MONGODB_CLIENT(self) -> MongoClient:
         return MongoClient(self.MONGODB_CONNECTION_STRING)

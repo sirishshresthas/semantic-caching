@@ -54,8 +54,6 @@ Semantic Caching enhances the efficiency of semantic search operations by cachin
 The following environment variables are required in the `.env` file:
 
     ```
-    PROJECT_ENVIRONMENT=dev # or prod for production environment
-
     ## Qdrant
     VECTORDB_URL= # Qdrant URL
     VECTORDB_API_KEY= # Qdrant API Key

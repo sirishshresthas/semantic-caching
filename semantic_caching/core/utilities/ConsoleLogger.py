@@ -19,7 +19,7 @@ class ConsoleLogger(object):
     def end_timer(self, message: str = ""):
         self.end_time = time.time()
         duration = self.end_time - self.start_time
-        duration = round(duration, 2)
+        duration = round(duration, 4)
 
         if not message: 
             message = f"complete ({str(duration)}s"
