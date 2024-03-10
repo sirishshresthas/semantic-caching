@@ -154,30 +154,30 @@ class SemanticCaching(object):
         if points:
             point = points[0]
             score = point.score
-            # # identify the distance metric to compare score with threshold
-            # is_hit = False
+            # identify the distance metric to compare score with threshold
+            is_hit = False
 
-            # logger.info(
-            #     f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
-            # if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
-            #     is_hit = score > self.distance_threshold
+            logger.info(
+                f"Current distance metric set on vector db is {self.vectorDb.distance_metric.lower()}")
+            if self.vectorDb.distance_metric.lower() in ['cosine', 'dot']:
+                is_hit = score > self.distance_threshold
 
-            # else:
-            #     is_hit = score <= self.distance_threshold
-
-            # if is_hit:
-            result = self.handle_cache_hit(
-                point_id=point.id, distance=score)
-
-            if not result:
-                console_logger.start_timer("Data doesn't seem to exist in the cache. Populating..")
-                logger.info(
-                    "Data doesn't seem to exist in the cache. Populating..")
-                result = self.handle_cache_miss(
-                    question=question, embedding=embedding, point_id=point.id, metadata=metadata, model_id=model_id)
-                logger.info("Result: ", result)
             else:
-                result = result['response_text']
+                is_hit = score <= self.distance_threshold
+
+            if is_hit:
+                result = self.handle_cache_hit(
+                    point_id=point.id, distance=score)
+
+                if not result:
+                    console_logger.start_timer("Data doesn't seem to exist in the cache. Populating..")
+                    logger.info(
+                        "Data doesn't seem to exist in the cache. Populating..")
+                    result = self.handle_cache_miss(
+                        question=question, embedding=embedding, point_id=point.id, metadata=metadata, model_id=model_id)
+                    logger.info("Result: ", result)
+                else:
+                    result = result['response_text']
 
             return result
 
