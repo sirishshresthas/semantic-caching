@@ -183,7 +183,6 @@ class SemanticCaching(object):
         result = self.handle_cache_miss(
             question, embedding, metadata=metadata, model_id=model_id)
 
-        console_logger.end_timer()
         return result
 
     def handle_cache_hit(self, point_id: str, distance: float) -> str:
@@ -222,7 +221,7 @@ class SemanticCaching(object):
             str: The generated answer to the question.
         """
 
-        console_logger.start_timer("Cache not found .. fetching data")
+        console_logger.start_timer("Cache not found, fetching data ...")
         answer, response_text = self.generate_answer(
             question, model_id)
         
