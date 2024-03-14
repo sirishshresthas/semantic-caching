@@ -1,4 +1,3 @@
-import logging
 import uuid
 from typing import Dict, List, Optional
 
@@ -7,8 +6,6 @@ from qdrant_client.http import models
 from requests.exceptions import ConnectionError, Timeout
 
 from semantic_caching.core.utilities import settings
-
-logger = logging.getLogger(__name__)
 
 
 class VectorDB(object):
@@ -37,30 +34,22 @@ class VectorDB(object):
         self.get_collection(vector_size=vector_size, distance=distance_metric)
         self.payload = {}
 
-        logger.info("Initiating VectorStorage.")
-        logger.info(
-            f"url={settings.VECTORDB_URL}; collection_name={self._collection_name}; payload (metadata)={self.payload}")
-
     @property
     def collection_name(self) -> str:
         """The name of the collection within the vector database."""
-        logger.info("Getting collection name")
         return self._collection_name
 
     @collection_name.setter
     def collection_name(self, value: str):
-        logger.info("Setting collection name")
         self._collection_name = value
 
     @property
     def distance_metric(self) -> str:
         """The distance metric used for vector comparisons."""
-        logger.info("Getting distance metric")
         return self._distance_metric
 
     @distance_metric.setter
     def distance_metric(self, distance):
-        logger.info("Setting distance metric")
         self._distance_metric = distance
 
     def get_collection(self, vector_size: int, distance: str = "cosine") -> None:
@@ -83,15 +72,13 @@ class VectorDB(object):
         # if it exist, use that as the collection
         # if not, create one
         try:
-            logger.info("Getting collection information")
+
             collection_response = self.client.get_collections()
 
             collections: List = [
                 cols.name for cols in collection_response.collections]
 
             if self.collection_name not in collections:
-
-                logger.info("Collection doesn't exist. Creating..")
 
                 collection = self.client.create_collection(
                     collection_name=self.collection_name,
@@ -102,17 +89,13 @@ class VectorDB(object):
                 return collection
 
             else:
-                logger.info("Collection exist. Retrieving")
                 return self.client.get_collection(self.collection_name)
 
         except ConnectionError:
-            logger.error("Failed to connect to the Qdrant server.")
             raise ValueError("Failed to connect to the Qdrant server.")
         except Timeout:
-            logger.error("The request to Qdrant server timed out.")
             raise ValueError("The request to Qdrant server timed out.")
         except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
             raise ValueError(f"An unexpected error occurred: {e}")
 
     def upsert(self, embeddings: List[float], point_id: Optional[uuid.UUID] = None, metadata: Optional[Dict] = None) -> None:
@@ -131,8 +114,6 @@ class VectorDB(object):
             metadata = {}
 
         try:
-            logger.info("Upserting data to vector db.")
-
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=[
@@ -143,15 +124,11 @@ class VectorDB(object):
                     )]
             )
         except ConnectionError:
-            logger.error(
-                "Failed to connect to the Qdrant server for upsert operation.")
             raise ValueError(
                 "Failed to connect to the Qdrant server for upsert operation.")
         except Timeout:
-            logger.error("The upsert request to Qdrant server timed out.")
             raise ValueError("The upsert request to Qdrant server timed out.")
         except Exception as e:
-            logger.error(f"An unexpected error occurred during upsert: {e}")
             raise ValueError(
                 f"An unexpected error occurred during upsert: {e}")
 
@@ -172,8 +149,6 @@ class VectorDB(object):
             ValueError: If there's an issue with the search operation.
         """
         try:
-            logger.info("Searching vectors..")
-            logger.info(f"limit={limit}; hnsw_ef={hnsw_ef}; exact={exact}")
             return self.client.search(
                 collection_name=self.collection_name,
                 query_vector=query_vector,
@@ -182,7 +157,6 @@ class VectorDB(object):
                 limit=limit,
             )
         except Exception as e:
-            logger.error(f"{e}")
             raise ValueError(e)
 
     def _get_distance_metric(self, distance: str = "cosine") -> models.Distance:
@@ -196,7 +170,6 @@ class VectorDB(object):
             models.Distance: The corresponding Qdrant Distance enum value.
         """
         distance = distance.lower()
-        logger.info(f"Getting distance metric to use. distance={distance}")
         metric = {
             "cosine": models.Distance.COSINE,
             "euclidean": models.Distance.EUCLID,

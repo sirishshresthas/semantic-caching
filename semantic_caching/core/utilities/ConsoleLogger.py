@@ -1,7 +1,5 @@
-import logging
 import time
 
-logger = logging.getLogger(__name__)
 
 class ConsoleLogger(object):
 
@@ -14,7 +12,6 @@ class ConsoleLogger(object):
         self.message = f"\r[INFO] {message}"
         self.start_time = time.time()
         print(self.message, end='', flush=True)
-        logger.info(self.message)
 
     def end_timer(self, message: str = ""):
         self.end_time = time.time()
@@ -26,7 +23,6 @@ class ConsoleLogger(object):
 
         new_message = f'\r{self.message} {message})'
         print(new_message)
-        logger.info(new_message)
 
     def add_message(self, message): 
         self.message = f"{self.message} {message}"
